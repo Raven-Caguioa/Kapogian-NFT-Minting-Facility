@@ -1,3 +1,120 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 14% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+ 
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+ 
+    --primary: 221 83% 60%;
+    --primary-foreground: 0 0% 100%;
+ 
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+ 
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+ 
+    --accent: 43 97% 64%;
+    --accent-foreground: 222 47% 11%;
+ 
+    --destructive: 350 89% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221 83% 60%;
+ 
+    --radius: 0.5rem;
+  }
+ 
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+ 
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+ 
+    --primary: 221 83% 60%;
+    --primary-foreground: 0 0% 100%;
+ 
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+ 
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+ 
+    --accent: 43 97% 64%;
+    --accent-foreground: 222 47% 11%;
+ 
+    --destructive: 350 89% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 221 83% 60%;
+  }
+}
+
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+    body {
+        @apply bg-background text-foreground;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+    main {
+      scroll-snap-type: y proximity;
+    }
+    /* Custom scrollbar to match aesthetic */
+    ::-webkit-scrollbar {
+        width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        @apply bg-border;
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        @apply bg-muted-foreground;
+    }
+}
+
+@layer components {
+    .glass-card {
+        background: hsla(var(--card), 0.7);
+        backdrop-filter: blur(12px);
+        border: 1px solid hsla(var(--border), 0.5);
+    }
+
+    .dark .glass-card {
+        background: hsla(var(--card), 0.1);
+    }
+
+    .gradient-aura {
+        background: radial-gradient(circle at 50% 50%, hsla(var(--primary), 0.15), hsla(var(--accent), 0.1) 40%, hsla(var(--background), 0) 70%);
+    }
+    
+    /* Custom Toggle Switch */
+    .toggle-checkbox:checked {
+        right: 0;
+        border-color: hsl(var(--primary));
+    }
+    .toggle-checkbox:checked + .toggle-label {
+        background-color: hsl(var(--primary));
+    }
+}

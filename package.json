@@ -13,7 +13,10 @@
     "@mysten/sui.js": "^0.54.0",
     "@tanstack/react-query": "^5.0.0",
     "eth-crypto": "^2.6.0",
+    "framer-motion": "^12.29.0",
+    "lucide-react": "^0.562.0",
     "next": "14.2.0",
+    "next-themes": "^0.4.6",
     "pinata-web3": "^0.5.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
