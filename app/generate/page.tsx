@@ -21,6 +21,7 @@ interface CharacterData {
   name: string;
   description: string;
   attributes: any;
+  lore: string;
   imageUrl?: string;
   previewUrl?: string;
 }
@@ -48,7 +49,7 @@ export default function GeneratePage() {
     );
   }
 
-  const handleGenerated = (imageBlob: Blob, metadata: any) => {
+  const handleGenerated = (imageBlob: Blob, metadata: any, lore: string) => {
     // Create preview URL
     const previewUrl = URL.createObjectURL(imageBlob);
     
@@ -57,6 +58,7 @@ export default function GeneratePage() {
       name: metadata.name,
       description: metadata.description,
       attributes: metadata.attributes,
+      lore,
       previewUrl,
     });
     
@@ -114,6 +116,16 @@ export default function GeneratePage() {
     }
   };
 
+  // Simple markdown renderer
+  const renderMarkdown = (text: string) => {
+    let html = text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+      .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
+      .replace(/\n/g, '<br />'); // Newlines
+    
+    return <div dangerouslySetInnerHTML={{ __html: html }} />;
+  };
+
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f3e8ff 0%, #fce7f3 50%, #dbeafe 100%)' }}>
       {/* Navigation */}
@@ -156,7 +168,7 @@ export default function GeneratePage() {
         </div>
 
         {/* Step Content */}
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           {/* Step 1: Generate */}
           {step === 'generate' && (
             <CharacterGenerator onGenerated={handleGenerated} />
@@ -164,26 +176,54 @@ export default function GeneratePage() {
 
           {/* Step 2: Preview */}
           {step === 'preview' && character && (
-            <div className="bg-white p-8 rounded-2xl shadow-lg space-y-6">
-              <h2 className="text-3xl font-bold text-center">Your Character</h2>
-              
-              {character.previewUrl && (
-                <img
-                  src={character.previewUrl}
-                  alt={character.name}
-                  className="w-full max-w-md mx-auto rounded-xl shadow-lg"
-                />
-              )}
-
-              <div className="text-center">
-                <h3 className="text-2xl font-bold mb-2">{character.name}</h3>
-                <p className="text-gray-600 mb-4">{character.description}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Image Section */}
+              <div className="bg-white p-8 rounded-2xl shadow-lg">
+                <h2 className="text-2xl font-bold text-center mb-4">Your Character</h2>
+                {character.previewUrl && (
+                  <img
+                    src={character.previewUrl}
+                    alt={character.name}
+                    className="w-full rounded-xl shadow-lg"
+                  />
+                )}
+                <div className="text-center mt-4">
+                  <h3 className="text-xl font-bold">{character.name}</h3>
+                </div>
               </div>
 
-              <div className="flex gap-4">
+              {/* Lore Section */}
+              <div className="bg-white p-8 rounded-2xl shadow-lg">
+                <h2 className="text-2xl font-bold mb-4">Character Lore</h2>
+                <div className="text-gray-700 leading-relaxed mb-6 max-h-96 overflow-y-auto">
+                  {character.lore ? renderMarkdown(character.lore) : 'No lore generated.'}
+                </div>
+
+                {/* Stats Display */}
+                <div className="mt-6 pt-6 border-t">
+                  <h3 className="text-lg font-bold mb-3">Kapogian Enchantments</h3>
+                  <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                    <div className="p-2 rounded-md bg-purple-100">
+                      <div className="font-semibold">Cuteness</div>
+                      <div className="text-purple-600 font-bold">{character.attributes.cuteness}</div>
+                    </div>
+                    <div className="p-2 rounded-md bg-indigo-100">
+                      <div className="font-semibold">Confidence</div>
+                      <div className="text-indigo-600 font-bold">{character.attributes.confidence}</div>
+                    </div>
+                    <div className="p-2 rounded-md bg-pink-100">
+                      <div className="font-semibold">Tili Factor</div>
+                      <div className="text-pink-600 font-bold">{character.attributes.tiliFactor}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="md:col-span-2 flex gap-4">
                 <button
                   onClick={() => setStep('generate')}
-                  className="flex-1 py-4 border-2 border-gray-300 rounded-xl font-bold hover:bg-gray-50"
+                  className="flex-1 py-4 border-2 border-gray-300 rounded-xl font-bold hover:bg-gray-50 transition"
                 >
                   ← Regenerate
                 </button>
@@ -192,7 +232,7 @@ export default function GeneratePage() {
                   className="flex-1 py-4 text-white font-bold rounded-xl transition-all hover:scale-105 shadow-lg"
                   style={{ background: 'linear-gradient(to right, #9333ea, #ec4899)' }}
                 >
-                  Continue →
+                  Continue to Merch →
                 </button>
               </div>
             </div>

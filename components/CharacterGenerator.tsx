@@ -1,13 +1,13 @@
 'use client';
 
 /**
- * Character Generator Component - Fixed with proper env vars
+ * Character Generator Component - Complete Implementation
  */
 
 import { useState } from 'react';
 
 interface CharacterGeneratorProps {
-  onGenerated: (imageBlob: Blob, metadata: CharacterMetadata) => void;
+  onGenerated: (imageBlob: Blob, metadata: CharacterMetadata, lore: string) => void;
 }
 
 interface CharacterMetadata {
@@ -54,32 +54,48 @@ export function CharacterGenerator({ onGenerated }: CharacterGeneratorProps) {
   const [holdingItem, setHoldingItem] = useState('None');
 
   /**
+   * Retry fetch with exponential backoff
+   */
+  const retryFetch = async (url: string, payload: any, headers: Record<string, string> = {}, maxRetries = 5, delay = 1000): Promise<any> => {
+    let retries = 0;
+    while (retries < maxRetries) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...headers
+          },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.json();
+      } catch (e) {
+        if (retries < maxRetries - 1) {
+          await new Promise(res => setTimeout(res, delay));
+          delay *= 2;
+          retries++;
+        } else {
+          throw e;
+        }
+      }
+    }
+  };
+
+  /**
    * Generate Filipino name using Gemini
    */
   const generateName = async () => {
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-    
-    const payload = {
-      contents: [{
-        parts: [{
-          text: "Generate a single unique Filipino male name (traditional or modern). Reply with ONLY the name, no quotes or extra text."
-        }]
-      }]
-    };
-    
     try {
-      const response = await fetch(url, {
+      const response = await fetch('/api/generate-name', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' }
       });
       
       if (!response.ok) throw new Error('Failed to generate name');
       
       const result = await response.json();
-      const generatedName = result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      return generatedName?.replace(/["']+/g, '') || "Pogi";
+      return result.name || "Pogi";
     } catch (e) {
       console.error("Name generation failed:", e);
       return "Pogi";
@@ -90,32 +106,46 @@ export function CharacterGenerator({ onGenerated }: CharacterGeneratorProps) {
    * Generate country name
    */
   const generateCountry = async () => {
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-    
-    const payload = {
-      contents: [{
-        parts: [{
-          text: "Generate a random country name. Reply with ONLY the country name, no quotes or extra text."
-        }]
-      }]
-    };
-
     try {
-      const response = await fetch(url, {
+      const response = await fetch('/api/generate-country', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' }
       });
       
       if (!response.ok) throw new Error('Failed to generate country');
       
       const result = await response.json();
-      const generatedCountry = result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      return generatedCountry?.replace(/["']+/g, '') || "a foreign land";
+      return result.country || "a foreign land";
     } catch (e) {
       console.error("Country generation failed:", e);
       return "a foreign land";
+    }
+  };
+
+  /**
+   * Generate lore text
+   */
+  const generateLore = async (name: string, originDesc: string) => {
+    try {
+      const response = await fetch('/api/generate-lore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          originDesc,
+          cuteness,
+          confidence,
+          tiliFactor
+        })
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate lore');
+      
+      const result = await response.json();
+      return result.lore || '';
+    } catch (e) {
+      console.error("Lore generation failed:", e);
+      return '';
     }
   };
 
@@ -219,19 +249,21 @@ export function CharacterGenerator({ onGenerated }: CharacterGeneratorProps) {
   };
 
   /**
-   * Main generate handler - using Pollinations AI for free image generation
+   * Main generate handler
    */
   const handleGenerate = async () => {
     try {
       setLoading(true);
       setError('');
 
+      // Generate name if not provided
       let nameToUse = characterName;
       if (!nameToUse) {
         nameToUse = await generateName();
         setCharacterName(nameToUse);
       }
 
+      // Determine origin
       let originDescription = "Filipino";
       if (luzon === 0 && visayas === 0 && mindanao === 0) {
         const origin = await generateCountry();
@@ -249,50 +281,36 @@ export function CharacterGenerator({ onGenerated }: CharacterGeneratorProps) {
       const fullPrompt = buildCharacterPrompt(nameToUse, originDescription);
       console.log('Image Prompt:', fullPrompt);
 
-      // For now, create a placeholder image with the character's info
-      // You'll need to either:
-      // 1. Set up a backend API route to handle image generation
-      // 2. Get API keys for image services
-      // 3. Use a paid service with CORS support
-      
-      // Create a nice looking placeholder with character info
-      const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 512;
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) throw new Error('Canvas not supported');
-      
-      // Background gradient
-      const gradient = ctx.createLinearGradient(0, 0, 512, 512);
-      gradient.addColorStop(0, '#9333ea');
-      gradient.addColorStop(1, '#ec4899');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 512, 512);
-      
-      // Character name
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 48px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(nameToUse, 256, 200);
-      
-      // Stats
-      ctx.font = '24px Arial';
-      ctx.fillText(`Cuteness: ${cuteness}`, 256, 280);
-      ctx.fillText(`Confidence: ${confidence}`, 256, 320);
-      ctx.fillText(`Tili Factor: ${tiliFactor}`, 256, 360);
-      
-      // Info text
-      ctx.font = '16px Arial';
-      ctx.fillText('Kapogian Character', 256, 420);
-      ctx.fillText(originDescription, 256, 450);
-      
-      // Convert canvas to blob
-      const imageBlob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-        }, 'image/png');
+      // Generate both image and lore in parallel
+      const imagePromise = fetch('/api/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: fullPrompt })
       });
+
+      const lorePromise = generateLore(nameToUse, originDescription);
+
+      const [imageResponse, lore] = await Promise.all([imagePromise, lorePromise]);
+
+      if (!imageResponse.ok) {
+        throw new Error('Failed to generate image');
+      }
+
+      const result = await imageResponse.json();
+      const base64Data = result?.base64Image;
+      
+      if (!base64Data) {
+        throw new Error('No image data received from the API.');
+      }
+
+      // Convert base64 to blob
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const imageBlob = new Blob([byteArray], { type: 'image/png' });
 
       const metadata: CharacterMetadata = {
         name: nameToUse,
@@ -316,7 +334,7 @@ export function CharacterGenerator({ onGenerated }: CharacterGeneratorProps) {
         },
       };
 
-      onGenerated(imageBlob, metadata);
+      onGenerated(imageBlob, metadata, lore);
     } catch (err: any) {
       console.error('Generation failed:', err);
       setError(err.message || 'Failed to generate character. Please try again.');
