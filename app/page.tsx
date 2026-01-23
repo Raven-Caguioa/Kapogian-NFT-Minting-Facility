@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { WalletButton } from '@/components/WalletButton';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { ADMIN_ADDRESS } from '@/lib/constants';
@@ -8,11 +9,8 @@ import LogoMarquee from '@/components/logo-marquee';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   Wand2,
-  UserCircle,
   Crown,
   Shirt,
-  Wallet,
-  GalleryVertical,
   Box,
   CheckCircle,
   Coffee,
@@ -21,9 +19,21 @@ import {
   ShieldCheck,
   FilePlus2,
   Hand,
+  Wallet,
+  GalleryVertical,
 } from 'lucide-react';
 import { motion, useScroll, useTransform, useMotionValue } from 'framer-motion';
 import React, { useRef, useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+
+const CharacterModel = dynamic(() => import('@/components/CharacterModel'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+      Loading 3D Model...
+    </div>
+  ),
+});
 
 // Enhanced animation variants
 const sectionVariant = {
@@ -77,7 +87,7 @@ const cardContentVariant = {
     y: 0,
     transition: {
       duration: 0.6,
-      ease: [0.16, 1, 0.3, 1],
+      ease: 'easeOut',
     },
   },
 };
@@ -112,34 +122,26 @@ export default function HomePage() {
   // Refs for scroll animations
   const pageRef = useRef(null);
   const heroContainerRef = useRef(null);
+  const visualCardRef = useRef<HTMLDivElement>(null);
 
-  const { scrollYProgress } = useScroll({ target: pageRef });
   const { scrollYProgress: heroScrollYProgress } = useScroll({
     target: heroContainerRef,
     offset: ['start start', 'end start'],
   });
 
-  // Hero Animations
-  const heroContentOpacity = useTransform(heroScrollYProgress, [0, 0.2, 0.3], [1, 1, 0]);
-  const heroContentY = useTransform(heroScrollYProgress, [0, 0.3], ['0%', '-50%']);
-  
-  // Multi-layer parallax for the visual card
-  const visualContainerY = useTransform(heroScrollYProgress, [0, 1], ['0%', '30%']);
-  const visualContainerScale = useTransform(heroScrollYProgress, [0, 1], [1, 0.9]);
-
-  // Mouse-based 3D tilt for hero visual
-  const visualCardRef = useRef<HTMLDivElement>(null);
+  // Mouse move effect for 3D tilt
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
-  
-  const rotateX = useTransform(mouseY, [-0.5, 0.5], [10, -10]);
-  const rotateY = useTransform(mouseX, [-0.5, 0.5], [-10, 10]);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const rotateX = useTransform(mouseY, [-0.5, 0.5], [-10, 10]);
+  const rotateY = useTransform(mouseX, [-0.5, 0.5], [10, -10]);
+
+  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!visualCardRef.current) return;
+    const { clientX, clientY } = event;
     const { left, top, width, height } = visualCardRef.current.getBoundingClientRect();
-    const x = (e.clientX - left) / width - 0.5;
-    const y = (e.clientY - top) / height - 0.5;
+    const x = (clientX - left) / width - 0.5;
+    const y = (clientY - top) / height - 0.5;
     mouseX.set(x);
     mouseY.set(y);
   };
@@ -149,22 +151,17 @@ export default function HomePage() {
     mouseY.set(0);
   };
 
-  const floatingBadge1Y = useTransform(heroScrollYProgress, [0, 1], [0, -100]);
-  const floatingBadge2Y = useTransform(heroScrollYProgress, [0, 1], [0, -150]);
+  // Parallax for floating badges
+  const floatingBadge1Y = useTransform(mouseY, [-0.5, 0.5], ['-10px', '10px']);
+  const floatingBadge2Y = useTransform(mouseY, [-0.5, 0.5], ['10px', '-10px']);
+
+  // Hero Animations
+  const heroContentOpacity = useTransform(heroScrollYProgress, [0, 0.2, 0.3], [1, 1, 0]);
+  const heroContentY = useTransform(heroScrollYProgress, [0, 0.3], ['0%', '-50%']);
   
-  // Background color interpolation
-  const backgroundColor = useTransform(
-    scrollYProgress,
-    [0, 0.2, 0.4, 0.6, 0.8, 1],
-    [
-      "hsl(var(--background))",
-      "hsl(var(--card))",
-      "hsl(var(--background))",
-      "hsl(var(--card))",
-      "hsl(222 40% 13%)", // Dark section forced color
-      "hsl(var(--card))"
-    ]
-  );
+  // Multi-layer parallax for the visual card
+  const visualContainerY = useTransform(heroScrollYProgress, [0, 1], ['0%', '30%']);
+  const visualContainerScale = useTransform(heroScrollYProgress, [0, 1], [1, 0.9]);
   
   // Code snippet for animated code block
   const codeSnippetJsx = [
@@ -198,6 +195,9 @@ export default function HomePage() {
     "From digital creation to physical delivery, we use cutting-edge cryptography to ensure your data is secure and your ownership is verifiable."
   ]);
   const [descriptionIndex, setDescriptionIndex] = useState(0);
+
+  // State for hero layout swap
+  const [isSwapped, setIsSwapped] = useState(false);
 
   useEffect(() => {
     const type = () => {
@@ -237,9 +237,18 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [descriptions.length]);
 
+  // Effect for swapping hero layout
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsSwapped(prev => !prev);
+    }, 4000); // Swap every 4 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
 
   return (
-    <motion.main ref={pageRef} style={{ backgroundColor }}>
+    <main ref={pageRef}>
       {/* Navigation */}
       <nav className="fixed w-full z-50 top-0 left-0 border-b bg-background/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -281,8 +290,10 @@ export default function HomePage() {
           <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10 h-full">
             {/* Left: Content */}
             <motion.div
+              layout
+              transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
               style={{ opacity: heroContentOpacity, y: heroContentY }}
-              className="max-w-2xl"
+              className={`max-w-2xl ${isSwapped ? 'lg:order-last' : ''}`}
             >
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -340,18 +351,23 @@ export default function HomePage() {
               </motion.div>
             </motion.div>
 
-            {/* Right: Visual Prompt Representation */}
+            {/* Right: Visual */}
             <motion.div
-              ref={visualCardRef}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={handleMouseLeave}
+              layout
+              transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
               style={{
                 y: visualContainerY,
                 scale: visualContainerScale,
               }}
-              className="relative w-full aspect-square md:aspect-[4/3] lg:aspect-square"
+              className="relative w-full h-full"
             >
-              <div style={{ perspective: '1000px' }} className="w-full h-full">
+              <div 
+                ref={visualCardRef}
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+                style={{ perspective: '1000px' }} 
+                className="w-full h-full"
+              >
                 <motion.div
                     style={{
                       transformStyle: 'preserve-3d',
@@ -376,19 +392,16 @@ export default function HomePage() {
                       {/* Simulate the 3D character with CSS */}
                       <div className="relative w-64 h-64">
                         <div className="absolute inset-0 bg-gradient-to-tr from-primary via-purple-400 to-accent rounded-full blur-3xl opacity-40 animate-pulse"></div>
-                        {/* Placeholder for actual character render */}
-                        <div className="relative z-10 w-full h-full bg-gradient-to-b from-card to-muted rounded-2xl shadow-xl flex items-center justify-center border border-card/50">
-                          <div className="text-center p-6">
-                            <UserCircle className="w-12 h-12 text-muted-foreground/30 mb-4 mx-auto" />
-                            <p className="text-sm font-medium text-muted-foreground">
-                              Rendering 1-of-1...
-                            </p>
-                            <div className="mt-4 flex justify-center gap-1">
-                              <div className="w-1 h-1 bg-muted-foreground/60 rounded-full"></div>
-                              <div className="w-1 h-1 bg-muted-foreground/40 rounded-full"></div>
-                              <div className="w-1 h-1 bg-muted-foreground/20 rounded-full"></div>
-                            </div>
-                          </div>
+                        {/* Character Image */}
+                        <div className="relative z-10 w-full h-full rounded-2xl shadow-xl border border-card/50 overflow-hidden">
+                          <Image
+                            src="/images/test1.png"
+                            alt="Kapogian Character Preview"
+                            fill
+                            sizes="100vw"
+                            style={{ objectFit: 'cover' }}
+                            priority
+                          />
                         </div>
                       </div>
 
@@ -430,14 +443,10 @@ export default function HomePage() {
             </motion.h2>
           </div>
           <p className="text-base text-muted-foreground leading-relaxed mb-8">
-            Kapogian is a fully automated character generation system that
-            produces 1-of-1 digital identities permanently minted on the SUI
-            Network.
+            Pogito is a fully realized 3D character representing a unique Kapogian NFT identity, generated automatically and minted 1-of-1 on the SUI Network.
           </p>
           <p className="text-base text-muted-foreground leading-relaxed">
-            But we go further. Every mint includes real-world merchandise,
-            securely tied to your NFT through an encrypted on-chain receipt —
-            bridging digital ownership and physical utility.
+            Every mint of this character bridges digital and physical worlds: each NFT comes with real-world merchandise, securely tied through an encrypted on-chain receipt. Users can interact with Pogito directly — click or tap to see animations, expressions, or gestures — bringing the NFT to life beyond static imagery.
           </p>
         </div>
       </motion.section>
@@ -637,7 +646,7 @@ export default function HomePage() {
                   />
                   <div className="p-4 bg-card border rounded-xl peer-checked:border-primary peer-checked:ring-1 peer-checked:ring-primary transition-all">
                     <div className="flex items-center justify-between mb-2">
-                      <Shirt className="w-6 h-6 text-muted-foreground group-hover:text-foreground" />
+                      <CheckCircle className="w-6 h-6 text-muted-foreground group-hover:text-foreground" />
                       <div className="w-4 h-4 rounded-full border border-muted-foreground peer-checked:bg-primary peer-checked:border-primary"></div>
                     </div>
                     <span className="text-sm font-medium text-foreground block">
@@ -834,6 +843,6 @@ export default function HomePage() {
           </span>
         </div>
       </footer>
-    </motion.main>
+    </main>
   );
 }
