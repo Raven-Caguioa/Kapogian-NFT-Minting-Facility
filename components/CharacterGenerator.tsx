@@ -1,9 +1,5 @@
 'use client';
 
-/**
- * Character Generator Component - Complete Implementation
- */
-
 import { useState } from 'react';
 
 interface CharacterGeneratorProps {
@@ -54,48 +50,23 @@ export function CharacterGenerator({ onGenerated }: CharacterGeneratorProps) {
   const [holdingItem, setHoldingItem] = useState('None');
 
   /**
-   * Retry fetch with exponential backoff
+   * Generate Filipino name using the API route
    */
-  const retryFetch = async (url: string, payload: any, headers: Record<string, string> = {}, maxRetries = 5, delay = 1000): Promise<any> => {
-    let retries = 0;
-    while (retries < maxRetries) {
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...headers
-          },
-          body: JSON.stringify(payload)
-        });
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        return await response.json();
-      } catch (e) {
-        if (retries < maxRetries - 1) {
-          await new Promise(res => setTimeout(res, delay));
-          delay *= 2;
-          retries++;
-        } else {
-          throw e;
-        }
-      }
-    }
-  };
-
-  /**
-   * Generate Filipino name using Gemini
-   */
-  const generateName = async () => {
+  const generateName = async (): Promise<string> => {
     try {
-      const response = await fetch('/api/generate-name', {
+      const response = await fetch('/api/generate-text', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          type: 'name',
+          prompt: 'Generate a single unique and creative name for a Filipino male character. The name should be a traditional or modern Filipino name. Do not include any other text, just the name.'
+        })
       });
       
       if (!response.ok) throw new Error('Failed to generate name');
       
       const result = await response.json();
-      return result.name || "Pogi";
+      return result.text?.replace(/["']+/g, '') || "Pogi";
     } catch (e) {
       console.error("Name generation failed:", e);
       return "Pogi";
@@ -103,19 +74,23 @@ export function CharacterGenerator({ onGenerated }: CharacterGeneratorProps) {
   };
 
   /**
-   * Generate country name
+   * Generate country name using the API route
    */
-  const generateCountry = async () => {
+  const generateCountry = async (): Promise<string> => {
     try {
-      const response = await fetch('/api/generate-country', {
+      const response = await fetch('/api/generate-text', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          type: 'country',
+          prompt: 'Generate a name of a foreign country, do not include any other text.'
+        })
       });
       
       if (!response.ok) throw new Error('Failed to generate country');
       
       const result = await response.json();
-      return result.country || "a foreign land";
+      return result.text?.replace(/["']+/g, '') || "a foreign land";
     } catch (e) {
       console.error("Country generation failed:", e);
       return "a foreign land";
@@ -123,36 +98,42 @@ export function CharacterGenerator({ onGenerated }: CharacterGeneratorProps) {
   };
 
   /**
-   * Generate lore text
+   * Generate lore text using the API route
    */
-  const generateLore = async (name: string, originDesc: string) => {
+  const generateLore = async (name: string, originDesc: string): Promise<string> => {
     try {
-      const response = await fetch('/api/generate-lore', {
+      const promptText = `
+        You are a lore generator for a fictional universe called "Kapogian Chibis".
+        A Kapogian Chibi is a confident, good-looking Filipino male.
+        Their stats are: Cuteness is ${cuteness} out of 100, Confidence is ${confidence} out of 100, and Tili Factor is ${tiliFactor} out of 100.
+        Create a detailed lore for a Kapogian Chibi named **${name}**, a ${originDesc}.
+        The lore should be about 150 words and include a backstory, personality description influenced by their stats, a heroic anecdote, and a concluding sentence.
+        Do not mention the exact stat numbers in the narrative. Focus on the creative description.
+        Use markdown formatting like bolding and italics to make the text stylish.`;
+
+      const response = await fetch('/api/generate-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          originDesc,
-          cuteness,
-          confidence,
-          tiliFactor
+        body: JSON.stringify({ 
+          type: 'lore',
+          prompt: promptText
         })
       });
       
       if (!response.ok) throw new Error('Failed to generate lore');
       
       const result = await response.json();
-      return result.lore || '';
+      return result.text || 'Failed to generate lore.';
     } catch (e) {
       console.error("Lore generation failed:", e);
-      return '';
+      return 'Failed to generate lore.';
     }
   };
 
   /**
    * Build character prompt
    */
-  const buildCharacterPrompt = (name: string, originDesc: string) => {
+  const buildCharacterPrompt = (name: string, originDesc: string): string => {
     let statDescriptors = "";
     
     if (cuteness > 75) {
@@ -249,37 +230,39 @@ export function CharacterGenerator({ onGenerated }: CharacterGeneratorProps) {
   };
 
   /**
-   * Main generate handler
+   * Main generate handler (exactly like JS version)
    */
   const handleGenerate = async () => {
-    try {
+    // If no character name is provided, generate one using the AI.
+    let nameToUse = characterName;
+    if (!nameToUse) {
       setLoading(true);
       setError('');
+      nameToUse = await generateName();
+      setCharacterName(nameToUse);
+    }
 
-      // Generate name if not provided
-      let nameToUse = characterName;
-      if (!nameToUse) {
-        nameToUse = await generateName();
-        setCharacterName(nameToUse);
-      }
+    // Determine the character's origin (exactly like JS version)
+    let originDescription = "Filipino";
+    if (luzon === 0 && visayas === 0 && mindanao === 0) {
+      const origin = await generateCountry();
+      originDescription = `a naturalized Filipino from ${origin}`;
+    } else {
+      const origins = [
+        { region: "Luzon", value: luzon },
+        { region: "Visayas", value: visayas },
+        { region: "Mindanao", value: mindanao }
+      ];
+      origins.sort((a, b) => b.value - a.value);
+      originDescription = `a native of the ${origins[0].region} region of the Philippines`;
+    }
 
-      // Determine origin
-      let originDescription = "Filipino";
-      if (luzon === 0 && visayas === 0 && mindanao === 0) {
-        const origin = await generateCountry();
-        originDescription = `a naturalized Filipino from ${origin}`;
-      } else {
-        const origins = [
-          { region: "Luzon", value: luzon },
-          { region: "Visayas", value: visayas },
-          { region: "Mindanao", value: mindanao }
-        ];
-        origins.sort((a, b) => b.value - a.value);
-        originDescription = `a native of the ${origins[0].region} region of the Philippines`;
-      }
+    // Reset state and show loading indicator
+    setError('');
+    setLoading(true);
 
+    try {
       const fullPrompt = buildCharacterPrompt(nameToUse, originDescription);
-      console.log('Image Prompt:', fullPrompt);
 
       // Generate both image and lore in parallel
       const imagePromise = fetch('/api/generate-image', {
